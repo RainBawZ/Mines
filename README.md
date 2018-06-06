@@ -5,42 +5,34 @@ Mines 0.5.2
 Current version is not optimized. Expect script size to decrease as development progresses.
 
 
-How to use:
+# How to use:
 
-	1: Reading the grid:
-		- #'s are empty squares. Since they do not contain any number you can assume that no mines
-		  are nearby and that all neighbouring squares also are safe
-		- numbers 1 - 8: The numbers indicate how many mines are neighbouring the revealed square.
-		- *'s are mines. If you have revealed a square containing this character, you've lost.
-		- X's are flags. Flag squares that you suspect contain mines.
+- Reading the grid:
+	- #'s are empty squares. Since they do not contain any number you can assume that no mines are nearby and that all neighbouring squares also are safe
+	- numbers 1 - 8: The numbers indicate how many mines are neighbouring the revealed square.
+	- *'s are mines. If you have revealed a square containing this character, you've lost.
+	- X's are flags. Flag squares that you suspect contain mines.
 	
-	2: Controls:
-		Select a square by entering its X and Y coordinates. X is horizontal, Y is vertical.
-		Toggle the flag tool by entering 0 in either the X or Y coordinate prompt.
-		Note: This method of selecting a position is prone to being changed or deprecated later,
-		      depending on which concepts work out the best.
-
-		When prompted for coordinates, you may also enter the following commands:
-			END	Ends the game.
-			SAVE	Saves your progress.
-			LOAD	Loads a previously saved game.
-			SCAN	Changes the way bombs are counted, so that already flagged squares do not
-				count towards the mine count
-		
-		If the game has crashed (A continous message reading "GAME CRASHED!"), type "minesweeper" to restart the game.
+- Controls:
+	- Select a square by entering its X and Y coordinates. X is horizontal, Y is vertical.
+	- Toggle the flag tool by entering 0 in either the X or Y coordinate prompt.
+	- When prompted for coordinates, you may also enter the following commands:
+		- END	Ends the game.
+		- SAVE	Saves your progress.
+		- LOAD	Loads a previously saved game.
+		- SCAN	Changes the way bombs are counted, so that already flagged squares do not count towards the mine count
+	- If the game has crashed (A continous message reading "GAME CRASHED!"), type "minesweeper" to restart the game.
 	
-	3: Settings:
-		You can edit settings either through the settings.cfg file found within the data folder,
-		or through the menu in the program.
-
-		UI mode (ui_mode) changes the way the grid is drawn. There are two options:
+- Settings:
+	- You can edit settings either through the settings.cfg file found within the data folder, or through the menu in the program.
+		- UI mode (ui_mode) changes the way the grid is drawn. There are two options:
 			- fast     (Faster draw speed, but is more difficult to read)
 			- pretty   (Slower draw speed, but is easier to read)
 		
-		When running in "pretty" mode, the different characters on the grid will have different
-		colors which makes them easier to separate from eachother.
-		Even though the grid is in the process of refreshing, you may still enter coordinates or
-		toggle the flag tool and it'll register the input.
+	When running in "pretty" mode, the different characters on the grid will have different
+	colors which makes them easier to separate from eachother.
+	Even though the grid is in the process of refreshing, you may still enter coordinates or
+	toggle the flag tool and it'll register the input.
 
 		Colors:
 			SETTING NAME		CONFIG NAME		VALID VALUES
@@ -69,6 +61,7 @@ Known bugs:
 
 
 Changelog:
+
 0.5.2 (0.5a2)
 - Improved draw speed in "pretty" mode.
 - Improved overall calculation speeds.
