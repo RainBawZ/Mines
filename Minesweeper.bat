@@ -1,15 +1,211 @@
 @echo off
+goto :init
+
+:ctxt
+set "param=^%~2" !
+set "param=!param:"=\"!"
+REM echo %1 - %2 - %3
+REM pause
+C:\Windows\System32\findstr.exe /p /A:%1 "." "!param!\..\X" nul
+<nul set /p ".=%DEL%%DEL%%DEL%%DEL%%DEL%%DEL%%DEL%"
+if /i "%~3"=="n" echo.
+goto :eof
+
+:UpdateCell <x> <y>
+set /a UpdateCell_x=4*%~1-1
+set /a UpdateCell_y=2*%~2+3
+set UpdateCell_Ox=%~1
+set UpdateCell_Oy=%~2
+set /a UpdateCell_l=!UpdateCell_x!-2
+data\ui_mvcurs !UpdateCell_l! !UpdateCell_y!
+if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_flagged!==1 (
+	REM call :ctxt !color_flagBG!!color_flagFG! " X "
+	data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! "\!color_flagFG!!color_flagBG! X "
+) else (
+	if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_hidden!==0 (
+		if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_bomb!==1 (
+			REM call :ctxt !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! " * "
+			data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! "\!gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! * "
+		) else (
+			if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_cts!==0 (
+				REM call :ctxt !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! " # "
+				data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! "\!gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! # "
+			) else (
+				REM call :ctxt "!gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr!" " !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_cts! "
+				data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! "\!gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! !gpos_%UpdateCell_Oy%_%Updatecell_Ox%_cts! "
+			)
+		)
+	) else (
+		<nul set /p dummy="^%DEL%   "
+	)
+)
+data\ui_mvcurs !promptPosX! !promptPosY!
+goto :eof
+
+:Flood <X> <Y>
+set Flood_x=%~1
+set Flood_y=%~2
+if !gpos_%Flood_y%_%Flood_x%_checked!==1 (
+	goto :eof
+)
+set gpos_!Flood_y!_!Flood_x!_checked=1
+set gpos_!Flood_y!_!Flood_x!_hidden=0
+if not !gpos_%Flood_y%_%Flood_x%_true!==0 (
+	if !gpos_%Flood_y%_%Flood_x%_bomb!==0 (
+		set /a score+=!gpos_%Flood_y%_%Flood_x%_true!
+		call :UpdateCell !Flood_x! !Flood_y!
+	)
+	goto :eof
+)
+set /a Flood_above=!Flood_y! - 1
+set /a Flood_below=!Flood_y! + 1
+set /a Flood_left=!Flood_x! - 1
+set /a Flood_right=!Flood_x! + 1
+for /l %%A in (!Flood_above!,1,!Flood_below!) do (
+	for /l %%B in (!Flood_left!,1,!Flood_right!) do (
+		if !gpos_%%A_%%B_flagged!==0 (
+			set !gpos_%%A_%%B_checked!==1
+			if !gpos_%%A_%%B_bomb!==0 (
+				set gpos_%%A_%%B_hidden=0
+				call :UpdateCell %%B %%A
+				set /a score+=!gpos_%%A_%%B_true!
+				if !gpos_%%A_%%B_true!==0 (
+					call :Flood %%B %%A
+				)
+			)
+		)
+	)
+)
+goto :eof
+
+:CountBombs <X> <Y>
+set CountBombs_counter=0
+set CountBombs_current_x=%~1
+set CountBombs_current_y=%~2
+set /a CountBombs_above=!CountBombs_current_y! - 1
+set /a CountBombs_below=!CountBombs_current_y! + 1
+set /a CountBombs_left=!CountBombs_current_x! - 1
+set /a CountBombs_right=!CountBombs_current_x! + 1
+for /l %%A in (!CountBombs_above!,1,!CountBombs_below!) do (
+	for /l %%B in (!CountBombs_left!,1,!CountBombs_right!) do (
+		if !gpos_%%A_%%B_bomb!==1 (
+			set /a CountBombs_counter+=1
+		)
+	)
+)
+if !CountBombs_counter! GTR 0 (
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_cts=!CountBombs_counter!
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_true=!CountBombs_counter!
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_clr=!color_%CountBombs_counter%!
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_dclr=!color_%CountBombs_counter%!
+) else (
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_cts=0
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_true=0
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_clr=!color_empty!
+	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_dclr=!color_empty!
+)
+goto :eof
+
+:CheckPos <X> <Y>
+set CheckPos_x=%~1
+set CheckPos_y=%~2
+if "!FLAG!"=="1" (
+	if !gpos_%CheckPos_y%_%CheckPos_x%_hidden!==1 (
+		if !gpos_%CheckPos_y%_%CheckPos_x%_flagged!==0 (
+			if !markedmines! LSS !GRID_BOMBS! (
+				set gpos_!CheckPos_y!_!CheckPos_x!_flagged=1
+				set /a markedmines+=1
+				set /a MinesLeft-=1
+				if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
+					set /a cormarked+=1
+				) else (
+					set /a inmarked+=1
+				)
+			) else (
+				if "!MSG!"==" " (
+					set MSG=No more flags left.
+				) else (
+					set MSG2=No more flags left.
+				)
+			)
+		) else (
+			set gpos_!CheckPos_y!_!Checkpos_x!_flagged=0
+			set /a markedmines-=1
+			set /a MinesLeft+=1
+			if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
+				set /a cormarked-=1
+			) else (
+				set /a inmarked-=1
+			)
+		)
+	)
+	call :UpdateCell !CheckPos_x! !CheckPos_y!
+) else (
+	if !gpos_%CheckPos_y%_%CheckPos_x%_flagged!==0 (
+		if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
+			call :RevealBombs
+			goto :gameover
+		)
+		call :Flood !CheckPos_x! !CheckPos_y!		
+	)
+)
+goto :eof
+
+:RevealBombs
+for /l %%A in (1,1,!GRID_Y!) do (
+	for /l %%B in (1,1,!GRID_X!) do (
+		if !gpos_%%A_%%B_bomb!==1 (
+			set gpos_%%A_%%B_flagged=0
+			set gpos_%%A_%%B_hidden=0
+			call :UpdateCell %%B %%A
+		)
+	)
+)
+goto :eof
+
+:init
 setlocal enabledelayedexpansion
-set version=0.4.5
+set version=0.5.2
+set save_compatibility_version=1046
+set consoleMode=0
 cd "%~dp0"
 color 0F
 if "%~1"=="" (
 	prompt $_GAME CRASHED^^!
-	start /w /b "" "%~f0" _
+	start /high /w /b "" "%~f0" _
 	color 0C
 	echo.
 	echo Launching Mines v!version!...
 	exit
+)
+if /i "%~1"=="grid" (
+	set consoleMode=1
+	if "%~2"=="" (
+		goto :cmdHelp
+	)
+	if "%~3"=="" (
+		goto :cmdHelp
+	)
+	if "%~4"=="" (
+		goto :cmdHelp
+	)
+	set "MSG= "
+	set "MSG2= "
+	set FLAG=0
+	set /a GRID=%~2*%~3
+	set GRID_BOMBS=%~4
+	set GRID_X=%~2
+	set GRID_Y=%~3
+	set debug=0
+	set score=0
+	set ui_mode=fast
+	set markedmines=0
+	set inmarked=0
+	set cormarked=0
+	set uncovered=0
+	set functions=MakeGrid,CountBombs,DrawGrid,CheckPos,Flood,ChangeResolution
+	call :MakeGrid !GRID_BOMBS! !GRID_X! !GRID_Y!
+	goto :gameloop
 )
 title Mines v!version!
 for /f "tokens=1,2 delims=#" %%A in ('"prompt #$H#$E# & echo on & for %%B in (1) do rem"') do (
@@ -19,29 +215,50 @@ for /f "tokens=1,2 delims=#" %%A in ('"prompt #$H#$E# & echo on & for %%B in (1)
 if not exist saves (
 	mkdir saves
 )
+if not exist data (
+	call :error "Folder 'data' not found."
+	exit /b
+)
+if not exist data\integrity.dat (
+	call :error "File 'data\integrity.dat' not found."
+	exit /b
+)
+for /f "tokens=*" %%A in (data\integrity.dat) do (
+	if not exist "%%A" (
+		call :error "File '%%A' not found."
+		exit /b
+	)
+)
+for /f "tokens=*" %%A in (data\devlogs\available.dat) do (
+	if not exist "data\devlogs\%%A.dat" (
+		call :warning "File 'data\devlogs\%%A.dat' not found."
+		timeout /t 1 > nul
+	)
+)
 :reload
 for /f "tokens=1,* delims==" %%A in (data\settings.cfg) do (
 	set %%A=%%B
 )
 for /f "tokens=*" %%A in (data\data.dat) do (
 	if not defined %%A (
-		call :error %%A
+		call :parse_error "data\settings.cfg" "%%A"
 		exit /b
 	)
 )
+call :ConvertColorIDs
 for /f "tokens=1,* delims==" %%A in (data\scoreboard.dat) do (
 	set %%A=%%B
 )
 set "MSG= "
 set "MSG2= "
 set FLAG=0
-set USETEMP=
 set GRID=0
 set GRID_BOMBS=0
 set GRID_X=0
 set GRID_Y=0
 set uncovered=0
 set functions=MakeGrid,CountBombs,DrawGrid,CheckPos,Flood,ChangeResolution
+set retMenu=0
 for %%A in (!functions!) do (
 	call :ClearVars %%A
 )
@@ -51,20 +268,26 @@ for /f "tokens=1 delims==" %%A in ('set gpos_') do (
 call :CheckColors
 color !color_mainBG!!color_mainFG!
 set debug=0
-
+goto :menu
 
 :menu
+set retMenu=0
 call :Clearvars all
-if !debug!==0 mode con cols=56 lines=30
+if !debug!==0 mode 56,30
 if exist "saves\autosave.dat" (
+	call :CheckSave autosave.dat
+	if !retMenu!==1 (
+		goto :menu
+	)
 	call :LoadGame autosave.dat
 	call :ChangeResolution !GRID_X! !GRID_Y!
 	if !debug!==0 cls
+	call :DrawGrid
 	goto :gameloop
 )
 if !debug!==0 cls
 echo.
-call :ctxt 0C "     0.4a5" n
+call :ctxt 0C "     0.5a2" n
 echo  ______________________________________________________
 echo       ___     ___                             
 echo      ^|   \   /   ^|  _   __    _   ______   ______
@@ -119,9 +342,14 @@ if !errorlevel!==7 (
 )
 if !errorlevel!==8 (
 	if exist "saves\usersave.dat" (
+		call :CheckSave usersave.dat
+		if !retMenu!==1 (
+			goto :menu
+		)
 		call :LoadGame usersave.dat
 		call :ChangeResolution !GRID_X! !GRID_Y!
 		if !debug!==0 cls
+		call :DrawGrid
 		goto :gameloop
 	)
 )
@@ -139,6 +367,7 @@ set inmarked=0
 set cormarked=0
 call :MakeGrid !easy_bombs! !easy_x! !easy_y!
 call :ChangeResolution !GRID_X! !GRID_Y!
+call :DrawGrid
 goto :gameloop
 
 :intermediate
@@ -148,6 +377,7 @@ set inmarked=0
 set cormarked=0
 call :MakeGrid !inter_bombs! !inter_x! !inter_y!
 call :ChangeResolution !GRID_X! !GRID_Y!
+call :DrawGrid
 goto :gameloop
 
 :expert
@@ -157,6 +387,7 @@ set inmarked=0
 set cormarked=0
 call :MakeGrid !exp_bombs! !exp_x! !exp_y!
 call :ChangeResolution !GRID_X! !GRID_Y!
+call :DrawGrid
 goto :gameloop
 
 :custom
@@ -172,6 +403,7 @@ set inmarked=0
 set cormarked=0
 call :MakeGrid !custom_bombs! !custom_x! !custom_y!
 call :ChangeResolution !GRID_X! !GRID_Y!
+call :DrawGrid
 goto :gameloop
 
 :gameloop
@@ -183,11 +415,15 @@ if !FLAG!==1 (
 		set MSG2=Flagging enabled
 	)
 )
-call :DrawGrid
+:: call :DrawGrid
 call :ResetContentValues
 if !uncovered!==!GRID! (
 	goto :gamewon
 )
+data\ui_helper GetCursorPos x
+set promptPosX=!errorlevel!
+data\ui_helper GetCursorPos y
+set /a promptPosY=!errorlevel!
 echo Enter 0 to toggle flagging.
 echo.
 set "X="
@@ -443,8 +679,6 @@ Echo     Creating grid...
 for /l %%A in (1,1,!MakeGrid_Y!) do (
 	for /l %%B in (1,1,!MakeGrid_X!) do (
 		set gpos_%%A_%%B_bomb=0
-		set "gpos_%%A_%%B_cts= "
-		set "gpos_%%A_%%B_true= "
 		set gpos_%%A_%%B_hidden=1
 		set gpos_%%A_%%B_checked=0
 		set gpos_%%A_%%B_flagged=0
@@ -476,34 +710,6 @@ for /l %%A in (1,1,!MakeGrid_Y!) do (
 			)
 		)
 	)
-)
-goto :eof
-
-:CountBombs <X> <Y>
-set CountBombs_counter=0
-set CountBombs_current_x=%~1
-set CountBombs_current_y=%~2
-set /a CountBombs_above=!CountBombs_current_y! - 1
-set /a CountBombs_below=!CountBombs_current_y! + 1
-set /a CountBombs_left=!CountBombs_current_x! - 1
-set /a CountBombs_right=!CountBombs_current_x! + 1
-for /l %%A in (!CountBombs_above!,1,!CountBombs_below!) do (
-	for /l %%B in (!CountBombs_left!,1,!CountBombs_right!) do (
-		if !gpos_%%A_%%B_bomb!==1 (
-			set /a CountBombs_counter+=1
-		)
-	)
-)
-if !CountBombs_counter! GTR 0 (
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_cts=!CountBombs_counter!
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_true=!CountBombs_counter!
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_clr=!color_%CountBombs_counter%!
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_dclr=!color_%CountBombs_counter%!
-) else (
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_cts=0
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_true=0
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_clr=!color_empty!
-	set gpos_!CountBombs_current_y!_!CountBombs_current_x!_dclr=!color_empty!
 )
 goto :eof
 
@@ -550,6 +756,33 @@ for /l %%A in (1,1,!GRID_Y!) do (
 )
 goto :eof
 
+:ConvertColorIDs
+set ConvertColorIDs_cnt=1
+for /f "tokens=1,* skip=1 delims==" %%A in (data\settings.cfg) do (
+	if !ConvertColorIDs_cnt!==15 (
+		goto :eof
+	)
+	if /i %%B==A (
+		set ui_%%A=10
+	)
+	if /i %%B==B (
+		set ui_%%A=11
+	)
+	if /i %%B==C (
+		set ui_%%A=12
+	)
+	if /i %%B==D (
+		set ui_%%A=13
+	)
+	if /i %%B==E (
+		set ui_%%A=14
+	)
+	if /i %%B==F (
+		set ui_%%A=15
+	)
+	set /a ConvertColorIDs_cnt+=1
+)
+
 :DrawGrid
 if !ui_mode!==pretty (
 	goto :DrawGrid.color
@@ -567,8 +800,8 @@ if !debug!==0 cls
 echo Score: !score!	Mines left: !MinesLeft!
 echo.!MSG!
 echo.!MSG2!
-echo !DrawGrid_xnums!
-echo _!DrawGrid_line!
+echo 	!DrawGrid_xnums!
+echo 	_!DrawGrid_line!
 for /l %%A in (1,1,!GRID_Y!) do (
 	set "DrawGrid_current=!DrawGrid_current!^|"
 	for /l %%B in (1,1,!GRID_X!) do (
@@ -583,17 +816,18 @@ for /l %%A in (1,1,!GRID_Y!) do (
 				if !gpos_%%A_%%B_cts!==0 (
 					set "DrawGrid_current=!DrawGrid_current! # ^|"
 				) else (
-					set "DrawGrid_current=!DrawGrid_current! !gpos_%%A_%%B_cts%USETEMP%! ^|"
+					set "DrawGrid_current=!DrawGrid_current! !gpos_%%A_%%B_cts! ^|"
 				)
 			) else (
 				set "DrawGrid_current=!DrawGrid_current!   ^|"
 			)
 		)
 	)
-	echo !DrawGrid_current! %%A
-	echo !DrawGrid_line2!^|
+	echo %%A	!DrawGrid_current! %%A
+	echo 	!DrawGrid_line2!^|
 	set "DrawGrid_current="
 )
+echo 	!DrawGrid_xnums!
 set "MSG= "
 set "MSG2= "
 goto :eof
@@ -647,93 +881,35 @@ set "MSG= "
 set "MSG2= "
 goto :eof
 
-:CheckPos <X> <Y>
-set CheckPos_x=%~1
-set CheckPos_y=%~2
-if "!FLAG!"=="1" (
-	if !gpos_%CheckPos_y%_%CheckPos_x%_hidden!==1 (
-		if !gpos_%CheckPos_y%_%CheckPos_x%_flagged!==0 (
-			if !markedmines! LSS !GRID_BOMBS! (
-				set gpos_!CheckPos_y!_!CheckPos_x!_flagged=1
-				set /a markedmines+=1
-				set /a MinesLeft-=1
-				if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
-					set /a cormarked+=1
-				) else (
-					set /a inmarked+=1
-				)
-			) else (
-				if "!MSG!"==" " (
-					set MSG=No more flags left.
-				) else (
-					set MSG2=No more flags left.
-				)
-			)
-		) else (
-			set gpos_!CheckPos_y!_!Checkpos_x!_flagged=0
-			set /a markedmines-=1
-			set /a MinesLeft+=1
-			if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
-				set /a cormarked-=1
-			) else (
-				set /a inmarked-=1
-			)
-		)
-	)
+:UpdateCell <x> <y>
+set /a UpdateCell_x=4*%~1-1
+set /a UpdateCell_y=2*%~2+3
+set UpdateCell_Ox=%~1
+set UpdateCell_Oy=%~2
+set /a UpdateCell_l=!UpdateCell_x!-2
+data\ui_mvcurs !UpdateCell_l! !UpdateCell_y!
+if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_flagged!==1 (
+	REM call :ctxt !color_flagBG!!color_flagFG! " X "
+	data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! " X " 
 ) else (
-	if !gpos_%CheckPos_y%_%CheckPos_x%_flagged!==0 (
-		if !gpos_%CheckPos_y%_%CheckPos_x%_bomb!==1 (
-			call :RevealBombs
-			goto :gameover
-		)
-		call :Flood !CheckPos_x! !CheckPos_y!		
-	)
-)
-goto :eof
-
-:RevealBombs
-for /l %%A in (1,1,!GRID_Y!) do (
-	for /l %%B in (1,1,!GRID_X!) do (
-		if !gpos_%%A_%%B_bomb!==1 (
-			set gpos_%%A_%%B_flagged=0
-			set gpos_%%A_%%B_hidden=0
-		)
-	)
-)
-goto :eof
-
-:Flood <X> <Y>
-set Flood_x=%~1
-set Flood_y=%~2
-if !gpos_%Flood_y%_%Flood_x%_checked!==1 (
-	goto :eof
-)
-set gpos_!Flood_y!_!Flood_x!_checked=1
-set gpos_!Flood_y!_!Flood_x!_hidden=0
-if not !gpos_%Flood_y%_%Flood_x%_true!==0 (
-	if !gpos_%Flood_y%_%Flood_x%_bomb!==0 (
-		set /a score+=!gpos_%Flood_y%_%Flood_x%_true!
-	)
-	goto :eof
-)
-set /a Flood_above=!Flood_y! - 1
-set /a Flood_below=!Flood_y! + 1
-set /a Flood_left=!Flood_x! - 1
-set /a Flood_right=!Flood_x! + 1
-for /l %%A in (!Flood_above!,1,!Flood_below!) do (
-	for /l %%B in (!Flood_left!,1,!Flood_right!) do (
-		if !gpos_%%A_%%B_flagged!==0 (
-			set !gpos_%%A_%%B_checked!==1
-			if !gpos_%%A_%%B_bomb!==0 (
-				set gpos_%%A_%%B_hidden=0
-				set /a score+=!gpos_%%A_%%B_true!
-				if !gpos_%%A_%%B_true!==0 (
-					call :Flood %%B %%A
-				)
+	if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_hidden!==0 (
+		if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_bomb!==1 (
+			REM call :ctxt !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! " * "
+			data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! " * "
+		) else (
+			if !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_cts!==0 (
+				REM call :ctxt !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr! " # "
+				data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! " # "
+			) else (
+				REM call :ctxt "!gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_dclr!" " !gpos_%UpdateCell_Oy%_%UpdateCell_Ox%_cts! "
+				data\ui_mvcurs !UpdateCell_l! !UpdateCell_y! " !gpos_%UpdateCell_Oy%_%Updatecell_Ox%_cts! "
 			)
 		)
+	) else (
+		<nul set /p dummy="^%DEL%   "
 	)
 )
+data\ui_mvcurs !promptPosX! !promptPosY!
 goto :eof
 
 :ClearVars <Varset>
@@ -806,13 +982,14 @@ goto :eof
 goto :eof
 
 :SaveGame <Savefile>
+if !consoleMode!==1 goto :eof
 if "%~2"=="m" (
 	echo.
 	<nul set /p ="Saving... "
 )
 (
 	echo @MINES SAVE
-	echo SAVE_VERSION=!version!
+	echo SAVE_VERSION=1!version:.=!
 	for /f "tokens=*" %%A in ('set GRID') do (
 		echo %%A
 	)
@@ -821,6 +998,7 @@ if "%~2"=="m" (
 	for /f "tokens=*" %%A in ('set gpos') do (
 		echo %%A
 	)
+	echo MinesLeft=!MinesLeft!
 	echo score=!score!
 	echo markedmines=!markedmines!
 	echo cormarked=!cormarked!
@@ -832,15 +1010,34 @@ if "%~2"=="m" (
 )
 goto :eof
 
+:CheckSave <File>
+for /f "tokens=*" %%A in (saves\%~1) do (
+	if not "%%A"=="@MINES SAVE" (
+		echo ERROR: Save file "%~1" is not a valid Mines save file.
+		echo.
+		echo The file has been deleted.
+		echo Press any key to return to the menu.
+		pause > nul
+		set retMenu=1
+		goto :eof
+	)
+	goto :CheckSave.break
+)
+:CheckSave.break
+goto :eof
+
 :LoadGame <File>
+if !consoleMode!==1 goto :eof
 echo.
 echo Loading...
 for /f "tokens=1,* delims==" %%A in (saves\%~1) do (
 	set %%A=%%B
 )
-if not !SAVE_VERSION!==!version! (
-	echo WARNING: This save file may not be compatible
+if !SAVE_VERSION! LSS !save_compatibility_version! (
+	echo WARNING: This save file is not compatible
 	echo          with the current version of Mines.
+	echo.
+	echo          Press any key to proceed.
 	pause > nul
 )
 goto :eof
@@ -852,7 +1049,15 @@ set /a ChangeResolution_x*=6
 set /a ChangeResolution_x+=10
 set /a ChangeResolution_y*=2
 set /a ChangeResolution_y+=11
-if !debug!==0 mode con cols=!ChangeResolution_x! lines=!ChangeResolution_y!
+if !ChangeResolution_x! GEQ 35 (
+	if !ChangeResolution_y! GEQ 15 (
+		if !debug!==0 mode !ChangeResolution_x!,!ChangeResolution_y!
+	)
+) else (
+	if !ChangeResolution_y! LSS 15 (
+		if !debug!==0 mode 35,15
+	)
+)
 goto :eof
 
 :CheckColors
@@ -875,7 +1080,7 @@ if not !color_mainBG!==!color_mainFG! (
 goto :eof
 
 :gameover
-del /q "saves\autosave.dat" > nul
+if !consoleMode!==0 del /q "saves\autosave.dat" > nul
 call :DrawGrid
 if !cormarked! GEQ 1 (
 	set /a score*=!cormarked!
@@ -887,6 +1092,7 @@ echo Your score:         !score!
 echo Marked mines:       !markedmines!/!GRID_BOMBS!
 echo Correctly marked:   !cormarked!
 echo Incorrectly marked: !inmarked!
+if !consoleMode!==1 endlocal & exit /b
 set /a totalscore+=!score!
 set /a totalmarked+=!markedmines!
 set /a totalcormark+=!cormarked!
@@ -897,7 +1103,7 @@ pause > nul
 goto :reload
 
 :gamewon
-del /q "saves\autosave.dat" > nul
+if !consoleMode!==0 del /q "saves\autosave.dat" > nul
 call :DrawGrid
 if !cormarked! GEQ 1 (
 	set /a score*=!cormarked!
@@ -910,6 +1116,7 @@ echo Your score:         !score!
 echo Marked mines:       !markedmines!/!GRID_BOMBS!
 echo Correctly marked:   !cormarked!
 echo Incorrectly marked: !inmarked!
+if !consoleMode!==1 endlocal & exit /b
 set /a totalscore+=!score!
 set /a totalmarked+=!markedmines!
 set /a totalcormark+=!cormarked!
@@ -919,43 +1126,151 @@ call :SaveStats
 pause > nul
 goto :reload
 
-
 :help
 if !debug!==0 cls
-echo Help:
+echo Select a category.
 echo.
-echo To reveal a square, first enter 
-echo the X coordinate ^(horizontal^)
-echo then enter the Y coordinate ^(vertical^)
+echo 1 -^> Understanding the grid
+echo 2 -^> Controls
+echo 3 -^> Changing settings
+echo 4 -^> Devlogs
+echo 5 -^> Credits
 echo.
-echo To flag a suspected mine, enter "0" to toggle flagging
-echo otherwise press 0 or any other number.
+echo 0 -^> Return
+choice /n /c 123450
+if !errorlevel!==1 (
+	goto :help.grid
+)
+if !errorlevel!==2 (
+	goto :help.controls
+)
+if !errorlevel!==3 (
+	goto :help.settings
+)
+if !errorlevel!==4 (
+	goto :help.devlogs
+)
+if !errorlevel!==5 (
+	goto :help.credits
+)
+if !errorlevel!==6 (
+	goto :menu
+)
+:help.grid
+if !debug!==0 cls
+echo UNDERSTANDING THE GRID
 echo.
-echo #   -^> Blank square, all neighbouring squares are safe.
-echo 1-8 -^> Number of mines neighbouring the revealed square.
-echo *   -^> Mine. If you reveal a square containing a mine,
-echo        you lose.
-echo X   -^> Flagged square. Flag a square if you suspect
-echo        that it holds a mine.
+type data\help_grid.dat
 echo.
+echo.
+echo Press any key to return.
 pause > nul
-goto :menu
+goto :help
+:help.controls
+if !debug!==0 cls
+echo CONTROLS
+echo.
+type data\help_controls.dat
+echo.
+echo.
+echo Press any key to return.
+pause > nul
+goto :help
+:help.settings
+if !debug!==0 cls
+echo CHANGING SETTINGS
+echo.
+type data\help_settings.dat
+echo.
+echo.
+echo Press any key to return.
+pause > nul
+goto :help
+:help.devlogs
+if !debug!==0 cls
+echo DEVLOGS
+echo.
+echo Select a version to view.
+set help_devlogIndex=1
+set help_devlogOptions=
+for /f "tokens=*" %%A in (data\devlogs\available.dat) do (
+	echo !help_devlogIndex! -^> %%A
+	set help_devlog!help_devlogIndex!=%%A
+	set help_devlogOptions=!help_devlogOptions!!help_devlogIndex!
+	set /a help_devlogIndex+=1
+)
+set /a help__devlogIndex=!help_devlogIndex!+1
+echo.
+echo 0 -^> Return
+echo.
+choice /c !help_devlogOptions!0 /n
+if %errorlevel%==!help_devlogIndex! (
+	goto :help
+)
+for /l %%A in (1,1,!help_devlogIndex!) do (
+	if %errorlevel%==%%A (
+		if !debug!==0 cls
+		type data\devlogs\!help_devlog%%A!.dat
+		echo.
+		echo.
+		echo Press any key to return.
+		pause > nul
+		goto :help.devlogs
+	)
+)
+goto :help
 
-:error <Data>
+
+:help.credits
+if !debug!==0 cls
+echo CREDITS
 echo.
-echo A FATAL ERROR OCCURRED WHILE PARSING:
-echo "data\Settings.cfg"
+type data\help_credits.dat
 echo.
-echo GLOBAL VARIABLE "%~1" WAS NOT DEFINED.
-echo data\Settings.cfg is corrupted or cannot be read.
+echo Press any key to return.
+pause > nul
+goto :help
+
+
+:cmdHelp
 echo.
-echo Please re-download to repair.
+echo Syntax error.
+echo.
+echo Usage: MINESWEEPER GRID ^<X^> ^<Y^> ^<BOMBS^>
+echo X:      Horizontal size of grid
+echo Y:      Vertical size of grid
+echo BOMBS:  Amount of bombs
+echo.
 exit /b
 
-:ctxt
-set "param=^%~2" !
-set "param=!param:"=\"!"
-findstr /p /A:%1 "." "!param!\..\X" nul
-<nul set /p ".=%DEL%%DEL%%DEL%%DEL%%DEL%%DEL%%DEL%"
-if /i "%~3"=="n" echo.
+:parse_error <File> <Data>
+echo.
+echo A FATAL ERROR OCCURRED WHILE PARSING:
+echo "%~1"
+echo.
+echo GLOBAL VARIABLE "%~2" WAS NOT DEFINED.
+echo The file is corrupted or cannot be read.
+echo.
+echo Please re-download to repair.
+goto :eof
+
+:error <Info>
+echo.
+echo ERROR:   Something went wrong while loading.
+echo          Remember to extract the game files
+echo          before attempting to start.
+echo.
+echo DATA:    %~1
+goto :eof
+
+:warning <Info>
+echo.
+echo WARNING: Something unexpected happened while
+echo          loading. You may continue playing,
+echo          but be aware of unstabilities.
+echo.
+echo DATA:    %~1
+echo.
+echo Press any key to continue.
+pause > nul
 goto :eof
